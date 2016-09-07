@@ -1,0 +1,21 @@
+
+INC= -I.
+LIB= -lpthread -lrt
+
+CC=gcc
+CC_FLAG=-Wall -g -O2
+
+PRG=qtest
+#OBJ= $(patsubst %.c,%.o,$(wildcard *.c))
+OBJ= lf_rwq.o
+
+$(PRG):$(OBJ)
+	$(CC) $(INC) -o $@ $(OBJ) $(LIB)
+	
+%.o:%.c
+	$(CC) -c  $(CC_FLAG) $(INC) $< -o $@
+
+.PRONY:clean
+clean:
+	@echo "Removing linked and compiled files......"
+	rm -f $(OBJ) $(PRG)
