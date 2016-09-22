@@ -24,6 +24,8 @@
 #include <atomic_user.h>
 #include <lf_rwq.h>
 
+#define test_mb
+
 u32 mydebug[5][65536];
 
 
@@ -218,7 +220,6 @@ void *writefn(void *arg)
 {
     cpu_set_t mask;
     int i, j;
-    char *p;
 //    int (*inq)(lfrwq_t* , void*);
     
     i = (long)arg;
@@ -374,29 +375,149 @@ int main()
 }
 #else
 static void sig_child(int signo);
+volatile u64 testq[65536];
 
-int main(int argc, char **argv)  
+void *write_s(void *arg)
 {
-    struct {
-        union{
-            struct{ 
-                int *p1;
-                long long1;
-            };
-            int *p2;
-            int *p3;
-        };
-        int *p4;
-        int *p5;
-    }haha;
-    memset(&haha, 0, sizeof(haha));
-    printf("size:%d\n", sizeof(haha));
-    while (1)
+    cpu_set_t mask;
+    int i, j;
+//    int (*inq)(lfrwq_t* , void*);
+    unsigned int start, end;
+    i = (long)arg;
+    if(i<8)
+        j=0;
+    else
+        j=1;
+    j = i;
+    CPU_ZERO(&mask); 
+    CPU_SET(i,&mask);
+
+    if (sched_setaffinity(0, sizeof(mask), &mask) == -1)
+    {
+        printf("warning: could not set CPU affinity, continuing...\n");
+    }
+    
+    printf("writefn%d,start\n",i);
+#if 0
+    if(lfrwq_get_token(gqh) == 1)
+    {
+        inq = lfrwq_inq_m;
+    }
+    else
+    {
+        inq = lfrwq_inq;
+    }
+#endif
+    rdtscl(start);
+
+    for(i=i-1;i<65536;i=i+2)
+    {
+        #ifdef test_mb
+        testq[i] = 0xdeadbeefdeadbeeful;
+        smp_mb();
+        #else
+        atomic64_xchg((atomic64_t *)&testq[i],0xdeadbeefdeadbeeful);
+        #endif
+    
+#if 0    
+        if(0 != inq(gqh, (void *)(long)(i+1)))
+        {
+            lfrwq_debug("inq fail\n");
+            break;
+        }
+#endif
+    }
+    rdtscl(end);
+    end = end - start;
+    lfrwq_debug("write%d cycle: %d\n", j,end);
+    while(1)
     {
         sleep(1);
     }
+    return 0;    
+}
+
+void *read_s(void *arg)
+{
+    cpu_set_t mask;
+    int i, j;
+    u64 data;
+    unsigned int start, end;
+
+    i = (long)arg;
+
+    if(i<24)
+        j=2;
+    else
+        j=3;
+
+    i = j;
+    CPU_ZERO(&mask); 
+    CPU_SET(i,&mask);
+
+    if (sched_setaffinity(0, sizeof(mask), &mask) == -1)
+    {
+        printf("warning: could not set CPU affinity, continuing...\n");
+    }
+    sleep(1);
+    printf("readfn%d,start\n",i);
+    
+    rdtscl(start);
+    for(i=0;i<65536;i++)
+    {
+        #ifdef test_mb
+//        while (testq[i] == 0)
+//            continue;
+        data = testq[i];
+        testq[i] = 0;
+        #else
+        data = atomic64_xchg((atomic64_t *)&testq[i],0);
+        #endif
+    }    
+    rdtscl(end);
+    end = end - start;
+    lfrwq_debug("read%d cycle: %d\n", j, end);
+    
+    while(1)
+    {
+        sleep(1);
+    }
+    return 0;    
+}
+
+
+int main(int argc, char **argv)  
+{
+    long num;
+    int err;
+    pthread_t ntid;
+    cpu_set_t mask;
+
+    CPU_ZERO(&mask); 
+    memset(testq, 0, sizeof(testq));
+#if 1
+    for(num=1; num <3; num++)
+    {
+        err = pthread_create(&ntid, NULL, write_s, (void *)num);
+        if (err != 0)
+            printf("can't create thread: %s\n", strerror(err));
+    }
+    for(; num <4; num++)
+    {
+        err = pthread_create(&ntid, NULL, read_s, (void *)num);
+        if (err != 0)
+            printf("can't create thread: %s\n", strerror(err));
+    }    
+#endif
+
+    while(1)
+    {
+        sleep(1);
+    }
+    
     return 0;
 }
+
 
 int main1(int argc, char **argv)  
 {  

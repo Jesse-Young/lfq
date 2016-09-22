@@ -14,6 +14,14 @@ typedef signed long long s64;
 typedef unsigned long long u64;
 
 
+#define mb() 	asm volatile("mfence":::"memory")
+#define rmb()	asm volatile("lfence":::"memory")
+#define wmb()	asm volatile("sfence" ::: "memory")
+
+#define smp_mb()	mb()
+
+
+
 
 #define LOCK_PREFIX_HERE \
 		".pushsection .smp_locks,\"a\"\n"	\

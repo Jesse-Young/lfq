@@ -6,8 +6,8 @@ CC=gcc
 CC_FLAG=-Wall -g -O2
 
 PRG=qtest
-#OBJ= $(patsubst %.c,%.o,$(wildcard *.c))
-OBJ= lf_rwq.o
+OBJ= $(patsubst %.c,%.o,$(wildcard *.c))
+#OBJ= lf_rwq.o
 
 $(PRG):$(OBJ)
 	$(CC) $(INC) -o $@ $(OBJ) $(LIB)
