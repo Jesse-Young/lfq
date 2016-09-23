@@ -43,6 +43,14 @@ typedef struct
 #define l1_index(oid)   ((oid >> 9)&(PTRS_PER_LEVEL - 1))
 #define l0_index(oid)   ((oid)&(PTRS_PER_LEVEL - 1))
 
+#define l6b_index_zero(oid)   ((oid & (l6_PTRS_PER_PG-1)) == 0)
+#define l5b_index_zero(oid)   ((oid & (l5_PTRS_PER_PG-1)) == 0)
+#define l4b_index_zero(oid)   ((oid & (l4_PTRS_PER_PG-1)) == 0)
+#define l3b_index_zero(oid)   ((oid & (l3_PTRS_PER_PG-1)) == 0)
+#define l2b_index_zero(oid)   ((oid & (l2_PTRS_PER_PG-1)) == 0)
+#define l1b_index_zero(oid)   ((oid & (l1_PTRS_PER_PG-1)) == 0)
+#define l0b_index_zero(oid)   ((oid & (l0_PTRS_PER_PG-1)) == 0)
+
 #define l0_PTRS_PER_PG (1ul<<9)
 #define l1_PTRS_PER_PG (1ul<<18)
 #define l2_PTRS_PER_PG (1ul<<27)
@@ -54,7 +62,7 @@ typedef struct
 #define LO_OK 0
 #define LO_OOM 1
 
-
+#define LO_REUSE_FAIL 2
 
 
 

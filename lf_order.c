@@ -289,364 +289,520 @@ get_lv1d:
     return (u64 *)*lv1d;
 }
 
-void _free_finished_pg(orderq_h_t *oq, void *pg)
+int reuse_pg(orderq_h_t *oq, void *pg)
 {
     u64 *lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d, *ret;
     u64 oid;
-    if(oq->pg_num > oq->pg_max)
-    {
-        free_page((void *)pg);
-        atomic_sub(1, (atomic_t *)&oq->pg_num);
-        return;
-    }
+
     oid = (oq->newest_pg + 1)<<9;
     
     if(oid < l1_PTRS_PER_PG)
     {
-        lv1d = l1d_alloc((u64 *)&oq->l1_fd, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        lv2d = (u64 *)&oq->l1_fd;
+        goto get_lv1d;
     }
     else if(oid < l2_PTRS_PER_PG)
     {
-        lv2d = l2d_alloc((u64 *)&oq->l2_fd, oid, oq);
-        if(lv2d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }    
-        lv1d = l1d_alloc(lv2d, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        lv3d = (u64 *)&oq->l2_fd;
+        goto get_lv2d;
     }        
     else if(oid < l3_PTRS_PER_PG)
     {
-        lv3d = l3d_alloc((u64 *)&oq->l3_fd, oid, oq);
-        if(lv3d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
-        lv2d = l2d_alloc(lv3d, oid, oq);
-        if(lv2d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv1d = l1d_alloc(lv2d, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        lv4d = (u64 *)&oq->l3_fd;
+        goto get_lv3d;
     }        
     else if(oid < l4_PTRS_PER_PG)
     {
-        lv4d = l4d_alloc((u64 *)&oq->l4_fd, oid, oq);
-        if(lv4d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
-        lv3d = l3d_alloc(lv4d, oid, oq);
-        if(lv3d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        
-        lv2d = l2d_alloc(lv3d, oid, oq);
-        if(lv2d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv1d = l1d_alloc(lv2d, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        lv5d = (u64 *)&oq->l4_fd;
+        goto get_lv4d;
     }        
     else if(oid < l5_PTRS_PER_PG)
     {
-        lv5d = l5d_alloc((u64 *)&oq->l5_fd, oid, oq);
-        if(lv5d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
-        lv4d = l4d_alloc(lv5d, oid, oq);
-        if(lv4d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }                
-        lv3d = l3d_alloc(lv4d, oid, oq);
-        if(lv3d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv2d = l2d_alloc(lv3d, oid, oq);
-        if(lv2d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv1d = l1d_alloc(lv2d, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        lv6d = (u64 *)&oq->l5_fd;
+        goto get_lv5d;
     }
     else if(oid < l6_PTRS_PER_PG) 
     {
-        lv6d = l6d_alloc((u64 *)&oq->l6_fd, oid, oq);
-        if(lv6d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
-        lv5d = l5d_alloc(lv6d, oid, oq);
-        if(lv5d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }                       
-        lv4d = l4d_alloc(lv5d, oid, oq);
-        if(lv4d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }                
-        lv3d = l3d_alloc(lv4d, oid, oq);
-        if(lv3d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv2d = l2d_alloc(lv3d, oid, oq);
-        if(lv2d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv1d = l1d_alloc(lv2d, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        lv7d = (u64 *)&oq->l6_fd;
+        goto get_lv6d;
     }
     else
     {
-        lv7d = l7d_alloc((u64 *)&oq->l7_fd, oid, oq);
-        if(lv7d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
-        lv6d = l6d_alloc(lv7d, oid, oq);
-        if(lv6d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }                               
-        lv5d = l5d_alloc(lv6d, oid, oq);
-        if(lv5d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }                       
-        lv4d = l4d_alloc(lv5d, oid, oq);
-        if(lv4d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }                
-        lv3d = l3d_alloc(lv4d, oid, oq);
-        if(lv3d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv2d = l2d_alloc(lv3d, oid, oq);
-        if(lv2d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }        
-        lv1d = l1d_alloc(lv2d, oid, oq);
-        if(lv1d == NULL)
-        {
-            lforder_debug("OOM\n");
-            return NULL;
-        }
+        goto get_lv7d;
     }
-    if(lxd_none(*lv1d))
+
+get_lv7d: 
+    if(lxd_none(oq->l7_fd))
     {
-        ret= (u64 *)atomic64_cmpxchg((atomic64_t *)lv1d, 0, (long)pg);
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)&oq->l7_fd, 0, (long)pg);
         if(ret != 0)
         {
-            free_page(pg);
-            atomic_sub(1, (atomic_t *)&oq->pg_num);
+            return LO_REUSE_FAIL;
         }
+        return LO_OK;
     }
+    lv7d = l7d_offset(&oq->l7_fd, oid);
+
+get_lv6d:        
+    if(lxd_none(*lv7d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv7d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    lv6d = l6d_offset(lv7d, oid);
+
+get_lv5d:
+    if(lxd_none(*lv6d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv6d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    lv5d = l5d_offset(lv6d, oid);
+
+get_lv4d:
+    if(lxd_none(*lv5d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv5d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    lv4d = l4d_offset(lv5d, oid);
+get_lv3d:        
+    if(lxd_none(*lv4d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv4d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    lv3d = l3d_offset(lv4d, oid);
+get_lv2d:
+    if(lxd_none(*lv3d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv3d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    lv2d = l2d_offset(lv3d, oid);
+
+get_lv1d:
+
+    if(lxd_none(*lv2d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv2d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    lv1d = l1d_offset(lv2d, oid);
+    if(lxd_none(*lv1d))
+    {
+        ret = (u64 *)atomic64_cmpxchg((atomic64_t *)lv1d, 0, (long)pg);
+        if(ret != 0)
+        {
+            return LO_REUSE_FAIL;
+        }
+        return LO_OK;
+    }
+    return LO_REUSE_FAIL;
+}
+
+void _deal_finished_pg(orderq_h_t *oq, void *pg)
+{
+    if((oq->pg_num < oq->pg_max) && (LO_OK == reuse_pg(oq, pg)))
+    {
+        return;
+    }
+    free_page((void *)pg);
+    atomic_sub(1, (atomic_t *)&oq->pg_num);    
     return;
 }
 
-
 /*oid µÍ9bit¿Ï¶¨Îª0*/
-void lfo_free_finished_pgs(orderq_h_t *oq, u64 oid)
+void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
 {
-    u64 *lvxd,*lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d, *pg,*pg2free;
-    u64 last_oid, index;
-    int level;
+    u64 *lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d;
 
     if(oid < l1_PTRS_PER_PG)
     {
-        level = 0;
-        index = l1_index(oid) - 1;
-        if(index == 0)
+        if(oid == l0_PTRS_PER_PG)
         {
-            pg = oq->l0_fd;
-            oq->l0_fd = 0;
+            lv1d = oq->l0_fd;
         }
         else
         {
-            lvxd = oq->l1_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv1d = l1d_offset(&oq->l1_fd, oid-1);       
         }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;         
     }
     else if(oid < l2_PTRS_PER_PG)
     {
-        level = 1;
-        index = l2_index(oid) - 1;
-        if(index == 0)
+        if(oid == l1_PTRS_PER_PG)
         {
-            pg = oq->l1_fd;
-            oq->l1_fd = 0;
+            lv2d = &oq->l1_fd;
+            lv1d = l1d_offset(lv2d, oid-1);              
+            _deal_finished_pg(oq, *lv2d);
+            *lv2d = 0;
         }
         else
         {
-            lvxd = oq->l2_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv2d = l2d_offset(&oq->l2_fd, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);
+            if(l1b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
         }
-    }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;                    
+    }        
     else if(oid < l3_PTRS_PER_PG)
     {
-        level = 2;
-        index = l3_index(oid) - 1;
-        if(index == 0)
+        if(oid == l2_PTRS_PER_PG)
         {
-            pg = oq->l2_fd;
-            oq->l2_fd = 0;
+            lv3d = &oq->l2_fd;
+            lv2d = l2d_offset(lv3d, oid-1);
+            _deal_finished_pg(oq, *lv3d);
+            *lv3d = 0;
+            lv1d = l1d_offset(lv2d, oid-1);              
+            _deal_finished_pg(oq, *lv2d);
+            *lv2d = 0;
+            _deal_finished_pg(oq, *lv1d);
+            *lv1d = 0;            
         }
         else
         {
-            lvxd = oq->l3_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv3d = l3d_offset(&oq->l3_fd, oid-1);
+            lv2d = l2d_offset(lv3d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);
+            if(l2b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;                
+            }
+            else if(l1b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else
+            {}
         }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;        
     }        
     else if(oid < l4_PTRS_PER_PG)
     {
-        level = 3;
-        index = l4_index(oid) - 1;
-        if(index == 0)
+        if(oid == l3_PTRS_PER_PG)
         {
-            pg = oq->l3_fd;
-            oq->l3_fd = 0;
+            lv4d = &oq->l3_fd;
+            lv3d = l3d_offset(lv4d, oid-1);
+            _deal_finished_pg(oq, *lv4d);
+            *lv4d = 0;            
+            lv2d = l2d_offset(lv3d, oid-1);
+            _deal_finished_pg(oq, *lv3d);
+            *lv3d = 0;
+            lv1d = l1d_offset(lv2d, oid-1);
+            _deal_finished_pg(oq, *lv2d);
+            *lv2d = 0;
         }
         else
         {
-            lvxd = oq->l4_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv4d = l4d_offset(&oq->l4_fd, oid-1);
+            lv3d = l3d_offset(lv4d, oid-1);
+            lv2d = l2d_offset(lv3d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);
+            if(l3b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }            
+            else if(l2b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l1b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else
+            {}
         }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;
     }        
     else if(oid < l5_PTRS_PER_PG)
     {
-        level = 4;
-        index = l5_index(oid) - 1;
-        if(index == 0)
+        if(oid == l4_PTRS_PER_PG)
         {
-            pg = oq->l4_fd;
-            oq->l4_fd = 0;
+            lv5d = &oq->l4_fd;           
+            lv4d = l4d_offset(lv5d, oid-1);
+            _deal_finished_pg(oq, *lv5d);
+            *lv5d = 0;
+            lv3d = l3d_offset(lv4d, oid-1);
+            _deal_finished_pg(oq, *lv4d);
+            *lv4d = 0;            
+            lv2d = l2d_offset(lv3d, oid-1);
+            _deal_finished_pg(oq, *lv3d);
+            *lv3d = 0;
+            lv1d = l1d_offset(lv2d, oid-1);
+            _deal_finished_pg(oq, *lv2d);
+            *lv2d = 0;
         }
         else
         {
-            lvxd = oq->l5_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv5d = l5d_offset(&oq->l5_fd, oid-1);
+            lv4d = l4d_offset(lv5d, oid-1);
+            lv3d = l3d_offset(lv4d, oid-1);
+            lv2d = l2d_offset(lv3d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);
+            if(l4b_index_zero(oid) == 0)
+            {
+                _deal_finished_pg(oq, *lv5d);
+                *lv5d = 0;           
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l3b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }            
+            else if(l2b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l1b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else
+            {}
         }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;        
     }
     else if(oid < l6_PTRS_PER_PG) 
     {
-        level = 5;
-        index = l6_index(oid) - 1;
-        if(index == 0)
+        if(oid == l5_PTRS_PER_PG)
         {
-            pg = oq->l5_fd;
-            oq->l5_fd = 0;
+            lv6d = &oq->l5_fd;           
+            lv5d = l5d_offset(lv6d, oid-1);
+            _deal_finished_pg(oq, *lv6d);
+            *lv6d = 0;            
+            lv4d = l4d_offset(lv5d, oid-1);
+            _deal_finished_pg(oq, *lv5d);
+            *lv5d = 0;
+            lv3d = l3d_offset(lv4d, oid-1);
+            _deal_finished_pg(oq, *lv4d);
+            *lv4d = 0;            
+            lv2d = l2d_offset(lv3d, oid-1);
+            _deal_finished_pg(oq, *lv3d);
+            *lv3d = 0;
+            lv1d = l1d_offset(lv2d, oid-1);
+            _deal_finished_pg(oq, *lv2d);
+            *lv2d = 0;
         }
         else
         {
-            lvxd = oq->l6_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv6d = l6d_offset(&oq->l6_fd, oid-1);
+            lv5d = l5d_offset(lv6d, oid-1);
+            lv4d = l4d_offset(lv5d, oid-1);
+            lv3d = l3d_offset(lv4d, oid-1);
+            lv2d = l2d_offset(lv3d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);
+            if(l5b_index_zero(oid) == 0)
+            {
+                _deal_finished_pg(oq, *lv6d);
+                *lv6d = 0;            
+                _deal_finished_pg(oq, *lv5d);
+                *lv5d = 0;           
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }            
+            else if(l4b_index_zero(oid) == 0)
+            {
+                _deal_finished_pg(oq, *lv5d);
+                *lv5d = 0;           
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l3b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }            
+            else if(l2b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l1b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else
+            {}
         }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;        
     }
     else
     {
-        level = 6;
-        index = l7_index(oid) - 1;
-        if(index == 0)
+        if(oid == l6_PTRS_PER_PG)
         {
-            pg = oq->l6_fd;
-            oq->l6_fd = 0;
+            lv7d = &oq->l6_fd;
+            lv6d = l6d_offset(lv7d, oid-1);
+            _deal_finished_pg(oq, *lv7d);
+            *lv7d = 0;            
+            lv5d = l5d_offset(lv6d, oid-1);
+            _deal_finished_pg(oq, *lv6d);
+            *lv6d = 0;            
+            lv4d = l4d_offset(lv5d, oid-1);
+            _deal_finished_pg(oq, *lv5d);
+            *lv5d = 0;
+            lv3d = l3d_offset(lv4d, oid-1);
+            _deal_finished_pg(oq, *lv4d);
+            *lv4d = 0;            
+            lv2d = l2d_offset(lv3d, oid-1);
+            _deal_finished_pg(oq, *lv3d);
+            *lv3d = 0;
+            lv1d = l1d_offset(lv2d, oid-1);
+            _deal_finished_pg(oq, *lv2d);
+            *lv2d = 0;
         }
         else
         {
-            lvxd = oq->l7_fd + index;
-            pg = *lvxd;
-            *lvxd = 0;
+            lv7d = l7d_offset(&oq->l7_fd, oid-1);
+            lv6d = l6d_offset(lv7d, oid-1);
+            lv5d = l5d_offset(lv6d, oid-1);
+            lv4d = l4d_offset(lv5d, oid-1);
+            lv3d = l3d_offset(lv4d, oid-1);
+            lv2d = l2d_offset(lv3d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);
+            if(l6b_index_zero(oid) == 0)
+            {
+                _deal_finished_pg(oq, *lv7d);
+                *lv7d = 0;           
+                _deal_finished_pg(oq, *lv6d);
+                *lv6d = 0;            
+                _deal_finished_pg(oq, *lv5d);
+                *lv5d = 0;           
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }                        
+            else if(l5b_index_zero(oid) == 0)
+            {
+                _deal_finished_pg(oq, *lv6d);
+                *lv6d = 0;            
+                _deal_finished_pg(oq, *lv5d);
+                *lv5d = 0;           
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }            
+            else if(l4b_index_zero(oid) == 0)
+            {
+                _deal_finished_pg(oq, *lv5d);
+                *lv5d = 0;           
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l3b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv4d);
+                *lv4d = 0;
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }            
+            else if(l2b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv3d);
+                *lv3d = 0;
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else if(l1b_index_zero(oid) == 0)
+            {                
+                _deal_finished_pg(oq, *lv2d);
+                *lv2d = 0;
+            }
+            else
+            {}
         }
+        _deal_finished_pg(oq, *lv1d);
+        *lv1d = 0;        
     }
-    
-    while(level > 0)
-    {
-        if(oid &((1ul<<(9*(level+1)))-1) == 0)
-        {
-            break;
-        }
-        index = (oid >> 9*level)&(PTRS_PER_LEVEL - 1);
-        lvxd = pg + index-1;
-        pg = *lvxd;
-        *lvxd = 0;
-        level--;
-    }
-
-    while(level > 0)
-    {
-        lvxd = pg + PTRS_PER_LEVEL-1;
-        pg2free = pg;
-        pg = *lvxd;
-        *lvxd = 0;
-        _free_finished_pg(oq, pg2free);
-        level--;
-    }
-     _free_finished_pg(oq, pg);
     return;
 }
 
@@ -692,9 +848,8 @@ snd_pkt:
     
     if(idx == PTRS_PER_LEVEL)
     {
-        //1:free pages 
+        lfo_deal_finished_pgs(oq, oid);
 
-        //2:get new position
         cur_pg = get_l0_pg(oq, thread, oid);
         if(cur_pg == NULL)
         {
