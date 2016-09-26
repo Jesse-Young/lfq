@@ -177,13 +177,14 @@ orderq_h_t *lfo_q_init(int thread_num)
     {
         oq->local_l0_pg[i] = oq->l0_fd;
     }
+    oq->pg_max = 100;
     return oq;
 }
 
 //static
 u64 *get_l0_pg(orderq_h_t *oq, int thread, u64 oid)
 {
-    u64 *lv0d,*lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d;
+    u64 *lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d;
     u64 last_oid;
     last_oid = oq->local_oid[thread];
     oq->local_oid[thread] = oid;
@@ -284,7 +285,7 @@ get_lv1d:
         lforder_debug("OOM\n");
         return NULL;
     }   
-    oq->local_l0_pg[thread] = *lv1d;
+    oq->local_l0_pg[thread] = (u64 *)*lv1d;
     oq->newest_pg = oid >> 9;
     return (u64 *)*lv1d;
 }
@@ -341,7 +342,7 @@ get_lv7d:
         }
         return LO_OK;
     }
-    lv7d = l7d_offset(&oq->l7_fd, oid);
+    lv7d = l7d_offset((u64 *)&oq->l7_fd, oid);
 
 get_lv6d:        
     if(lxd_none(*lv7d))
@@ -439,215 +440,311 @@ void _deal_finished_pg(orderq_h_t *oq, void *pg)
 /*oid µÍ9bit¿Ï¶¨Îª0*/
 void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
 {
-    u64 *lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d;
+    u64 *lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d, *pg, *next_pg;
 
     if(oid < l1_PTRS_PER_PG)
     {
         if(oid == l0_PTRS_PER_PG)
         {
-            lv1d = oq->l0_fd;
+            lv1d = (u64 *)&oq->l0_fd;
         }
         else
         {
-            lv1d = l1d_offset(&oq->l1_fd, oid-1);       
+            lv1d = l1d_offset((u64 *)&oq->l1_fd, oid-1);       
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;         
+        pg = (u64 *)*lv1d;
+        *lv1d = 0;
+        _deal_finished_pg(oq, (void *)pg);        
     }
     else if(oid < l2_PTRS_PER_PG)
     {
         if(oid == l1_PTRS_PER_PG)
         {
-            lv2d = &oq->l1_fd;
-            lv1d = l1d_offset(lv2d, oid-1);              
-            _deal_finished_pg(oq, *lv2d);
+            lv2d = (u64 *)&oq->l1_fd;
+            lv1d = l1d_offset(lv2d, oid-1);
+            pg = (u64 *)*lv2d;
             *lv2d = 0;
+            next_pg = (u64 *)*lv1d;
+            *lv1d = 0;
+            _deal_finished_pg(oq, (void *)pg);
         }
         else
         {
-            lv2d = l2d_offset(&oq->l2_fd, oid-1);
+            lv2d = l2d_offset((u64 *)&oq->l2_fd, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);
             if(l1b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv2d);
+                pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+            }
+            else
+            {
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
             }
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;                    
+        _deal_finished_pg(oq, (void *)next_pg);
     }        
     else if(oid < l3_PTRS_PER_PG)
     {
         if(oid == l2_PTRS_PER_PG)
         {
-            lv3d = &oq->l2_fd;
+            lv3d = (u64 *)&oq->l2_fd;
             lv2d = l2d_offset(lv3d, oid-1);
-            _deal_finished_pg(oq, *lv3d);
+            lv1d = l1d_offset(lv2d, oid-1);
+            pg = (u64 *)*lv3d;
             *lv3d = 0;
-            lv1d = l1d_offset(lv2d, oid-1);              
-            _deal_finished_pg(oq, *lv2d);
+            next_pg = (u64 *)*lv2d;
             *lv2d = 0;
-            _deal_finished_pg(oq, *lv1d);
-            *lv1d = 0;            
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv1d;
+            *lv1d = 0;
+            _deal_finished_pg(oq, (void *)pg);
         }
         else
         {
-            lv3d = l3d_offset(&oq->l3_fd, oid-1);
+            lv3d = l3d_offset((u64 *)&oq->l3_fd, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
-            lv1d = l1d_offset(lv2d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);            
             if(l2b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv3d);
+                pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
-                *lv2d = 0;                
+                next_pg = (u64 *)*lv2d;
+                *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l1b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv2d);
+                pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else
-            {}
+            {
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+            }
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;        
+        _deal_finished_pg(oq, (void *)next_pg);
     }        
     else if(oid < l4_PTRS_PER_PG)
     {
         if(oid == l3_PTRS_PER_PG)
         {
-            lv4d = &oq->l3_fd;
+            lv4d = (u64 *)&oq->l3_fd;
             lv3d = l3d_offset(lv4d, oid-1);
-            _deal_finished_pg(oq, *lv4d);
-            *lv4d = 0;            
             lv2d = l2d_offset(lv3d, oid-1);
-            _deal_finished_pg(oq, *lv3d);
-            *lv3d = 0;
             lv1d = l1d_offset(lv2d, oid-1);
-            _deal_finished_pg(oq, *lv2d);
+            pg = (u64 *)*lv4d;
+            *lv4d = 0;
+            next_pg = (u64 *)*lv3d;
+            *lv3d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv2d;
             *lv2d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv1d;
+            *lv1d = 0;
+            _deal_finished_pg(oq, (void *)pg);
         }
         else
         {
-            lv4d = l4d_offset(&oq->l4_fd, oid-1);
+            lv4d = l4d_offset((u64 *)&oq->l4_fd, oid-1);
             lv3d = l3d_offset(lv4d, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);
             if(l3b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+
             }            
             else if(l2b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv3d);
+                pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l1b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv2d);
+                pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else
-            {}
+            {
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+            }
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;
+        _deal_finished_pg(oq, (void *)next_pg);
     }        
     else if(oid < l5_PTRS_PER_PG)
     {
         if(oid == l4_PTRS_PER_PG)
         {
-            lv5d = &oq->l4_fd;           
+            lv5d = (u64 *)&oq->l4_fd;
             lv4d = l4d_offset(lv5d, oid-1);
-            _deal_finished_pg(oq, *lv5d);
-            *lv5d = 0;
             lv3d = l3d_offset(lv4d, oid-1);
-            _deal_finished_pg(oq, *lv4d);
-            *lv4d = 0;            
             lv2d = l2d_offset(lv3d, oid-1);
-            _deal_finished_pg(oq, *lv3d);
-            *lv3d = 0;
             lv1d = l1d_offset(lv2d, oid-1);
-            _deal_finished_pg(oq, *lv2d);
+            pg = (u64 *)*lv5d;
+            *lv5d = 0;
+            next_pg = (u64 *)*lv4d;
+            *lv4d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv3d;
+            *lv3d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv2d;
             *lv2d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv1d;
+            *lv1d = 0;
+            _deal_finished_pg(oq, (void *)pg);
         }
         else
         {
-            lv5d = l5d_offset(&oq->l5_fd, oid-1);
+            lv5d = l5d_offset((u64 *)&oq->l5_fd, oid-1);
             lv4d = l4d_offset(lv5d, oid-1);
             lv3d = l3d_offset(lv4d, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
-            lv1d = l1d_offset(lv2d, oid-1);
+            lv1d = l1d_offset(lv2d, oid-1);            
             if(l4b_index_zero(oid) == 0)
             {
-                _deal_finished_pg(oq, *lv5d);
-                *lv5d = 0;           
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv5d;
+                *lv5d = 0;
+                next_pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l3b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+
             }            
             else if(l2b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv3d);
+                pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l1b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv2d);
+                pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else
-            {}
+            {
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+            }
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;        
+        _deal_finished_pg(oq, (void *)next_pg);
     }
     else if(oid < l6_PTRS_PER_PG) 
     {
         if(oid == l5_PTRS_PER_PG)
         {
-            lv6d = &oq->l5_fd;           
+            lv6d = (u64 *)&oq->l5_fd;
             lv5d = l5d_offset(lv6d, oid-1);
-            _deal_finished_pg(oq, *lv6d);
-            *lv6d = 0;            
             lv4d = l4d_offset(lv5d, oid-1);
-            _deal_finished_pg(oq, *lv5d);
-            *lv5d = 0;
             lv3d = l3d_offset(lv4d, oid-1);
-            _deal_finished_pg(oq, *lv4d);
-            *lv4d = 0;            
             lv2d = l2d_offset(lv3d, oid-1);
-            _deal_finished_pg(oq, *lv3d);
-            *lv3d = 0;
             lv1d = l1d_offset(lv2d, oid-1);
-            _deal_finished_pg(oq, *lv2d);
+            pg = (u64 *)*lv6d;
+            *lv6d = 0;
+            next_pg = (u64 *)*lv5d;
+            *lv5d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv4d;
+            *lv4d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv3d;
+            *lv3d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv2d;
             *lv2d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv1d;
+            *lv1d = 0;
+            _deal_finished_pg(oq, (void *)pg);
         }
         else
         {
-            lv6d = l6d_offset(&oq->l6_fd, oid-1);
+            lv6d = l6d_offset((u64 *)&oq->l6_fd, oid-1);
             lv5d = l5d_offset(lv6d, oid-1);
             lv4d = l4d_offset(lv5d, oid-1);
             lv3d = l3d_offset(lv4d, oid-1);
@@ -655,82 +752,134 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv1d = l1d_offset(lv2d, oid-1);
             if(l5b_index_zero(oid) == 0)
             {
-                _deal_finished_pg(oq, *lv6d);
-                *lv6d = 0;            
-                _deal_finished_pg(oq, *lv5d);
-                *lv5d = 0;           
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv6d;
+                *lv6d = 0;
+                next_pg = (u64 *)*lv5d;
+                *lv5d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+
             }            
             else if(l4b_index_zero(oid) == 0)
             {
-                _deal_finished_pg(oq, *lv5d);
-                *lv5d = 0;           
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv5d;
+                *lv5d = 0;
+                next_pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l3b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+
             }            
             else if(l2b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv3d);
+                pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l1b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv2d);
+                pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else
-            {}
+            {
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+            }
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;        
+        _deal_finished_pg(oq, (void *)next_pg);
     }
     else
     {
         if(oid == l6_PTRS_PER_PG)
         {
-            lv7d = &oq->l6_fd;
+            lv7d = (u64 *)&oq->l6_fd;
             lv6d = l6d_offset(lv7d, oid-1);
-            _deal_finished_pg(oq, *lv7d);
-            *lv7d = 0;            
             lv5d = l5d_offset(lv6d, oid-1);
-            _deal_finished_pg(oq, *lv6d);
-            *lv6d = 0;            
             lv4d = l4d_offset(lv5d, oid-1);
-            _deal_finished_pg(oq, *lv5d);
-            *lv5d = 0;
             lv3d = l3d_offset(lv4d, oid-1);
-            _deal_finished_pg(oq, *lv4d);
-            *lv4d = 0;            
             lv2d = l2d_offset(lv3d, oid-1);
-            _deal_finished_pg(oq, *lv3d);
-            *lv3d = 0;
             lv1d = l1d_offset(lv2d, oid-1);
-            _deal_finished_pg(oq, *lv2d);
+            pg = (u64 *)*lv7d;
+            *lv7d = 0;
+            next_pg = (u64 *)*lv6d;
+            *lv6d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv5d;
+            *lv5d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv4d;
+            *lv4d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv3d;
+            *lv3d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv2d;
             *lv2d = 0;
+            _deal_finished_pg(oq, (void *)pg);
+            pg = next_pg;
+            next_pg = (u64 *)*lv1d;
+            *lv1d = 0;
+            _deal_finished_pg(oq, (void *)pg);
         }
         else
         {
-            lv7d = l7d_offset(&oq->l7_fd, oid-1);
+            lv7d = l7d_offset((u64 *)&oq->l7_fd, oid-1);
             lv6d = l6d_offset(lv7d, oid-1);
             lv5d = l5d_offset(lv6d, oid-1);
             lv4d = l4d_offset(lv5d, oid-1);
@@ -739,69 +888,121 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv1d = l1d_offset(lv2d, oid-1);
             if(l6b_index_zero(oid) == 0)
             {
-                _deal_finished_pg(oq, *lv7d);
-                *lv7d = 0;           
-                _deal_finished_pg(oq, *lv6d);
-                *lv6d = 0;            
-                _deal_finished_pg(oq, *lv5d);
-                *lv5d = 0;           
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv7d;
+                *lv7d = 0;
+                next_pg = (u64 *)*lv6d;
+                *lv6d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv5d;
+                *lv5d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }                        
             else if(l5b_index_zero(oid) == 0)
             {
-                _deal_finished_pg(oq, *lv6d);
-                *lv6d = 0;            
-                _deal_finished_pg(oq, *lv5d);
-                *lv5d = 0;           
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv6d;
+                *lv6d = 0;
+                next_pg = (u64 *)*lv5d;
+                *lv5d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+
             }            
             else if(l4b_index_zero(oid) == 0)
             {
-                _deal_finished_pg(oq, *lv5d);
-                *lv5d = 0;           
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv5d;
+                *lv5d = 0;
+                next_pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l3b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv4d);
+                pg = (u64 *)*lv4d;
                 *lv4d = 0;
-                _deal_finished_pg(oq, *lv3d);
+                next_pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+
             }            
             else if(l2b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv3d);
+                pg = (u64 *)*lv3d;
                 *lv3d = 0;
-                _deal_finished_pg(oq, *lv2d);
+                next_pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                _deal_finished_pg(oq, (void *)pg);
+                pg = next_pg;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else if(l1b_index_zero(oid) == 0)
             {                
-                _deal_finished_pg(oq, *lv2d);
+                pg = (u64 *)*lv2d;
                 *lv2d = 0;
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+                _deal_finished_pg(oq, (void *)pg);
             }
             else
-            {}
+            {
+                next_pg = (u64 *)*lv1d;
+                *lv1d = 0;
+            }
         }
-        _deal_finished_pg(oq, *lv1d);
-        *lv1d = 0;        
+        _deal_finished_pg(oq, (void *)next_pg);
     }
     return;
 }

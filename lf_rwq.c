@@ -23,6 +23,7 @@
 
 #include <atomic_user.h>
 #include <lf_rwq.h>
+#include <lf_order.h>
 
 #define test_mb
 
@@ -178,7 +179,13 @@ lfrwq_t* lfrwq_init(u32 q_len, u32 blk_len, u32 readers)
         goto init_err;  
     }
 //    total_len = (1 + (total_len-1)/4096)*4096;
-    ftruncate(fd, total_len);
+//    (void)ftruncate(fd, total_len);
+    if( ftruncate(fd, total_len) != 0 )
+    { 
+        lfrwq_debug("ftruncate Error:%s/n/a", strerror(errno));  
+        goto init_err;  
+    }
+
     qh = mmap(NULL, total_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     
     memset((void *)qh, 0, total_len);
@@ -215,6 +222,8 @@ init_err:
 }
 
 lfrwq_t *gqh;
+orderq_h_t *goqh;
+
 
 void *writefn(void *arg)
 {
@@ -482,6 +491,7 @@ void *read_s(void *arg)
     {
         sleep(1);
     }
+    data = data;
     return 0;    
 }
 
@@ -494,7 +504,10 @@ int main(int argc, char **argv)
     cpu_set_t mask;
 
     CPU_ZERO(&mask); 
-    memset(testq, 0, sizeof(testq));
+    memset(&testq, 0, sizeof(testq));
+
+    goqh = lfo_q_init(2);
+    
 #if 1
     for(num=1; num <3; num++)
     {

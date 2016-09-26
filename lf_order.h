@@ -73,4 +73,6 @@ typedef struct
 					}
 
 
+extern orderq_h_t *lfo_q_init(int thread_num);
+
 #endif
