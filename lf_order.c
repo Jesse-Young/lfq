@@ -22,9 +22,22 @@
 
 #include <atomic_user.h>
 #include <lf_order.h>
+orderq_h_t *goqh;
+__thread u64 token_at_id;
+__thread u64 *token_at_entry;
+u64 send_total = 0;
 
 void pk_send(u64 cmd)
 {
+    if(cmd != send_total)
+    {
+        lforder_debug("seq is error\n");
+        while(1)
+        {
+            sleep(1);
+        }
+    }
+    send_total++;
     return;
 }
 
@@ -38,6 +51,18 @@ static inline void *alloc_page()
         memset(p, 0, 4096);
     }
     return p;
+}
+
+static inline int pg_test_zero(u64 *p)
+{
+    int i;
+    for(i=0;i < 512;i++)
+    {
+        if(*p != 0)
+            return -1;
+        p++;
+    }
+    return 0;
 }
 
 static inline void free_page(void *page)
@@ -295,6 +320,17 @@ int reuse_pg(orderq_h_t *oq, void *pg)
     u64 *lv1d,*lv2d,*lv3d,*lv4d,*lv5d,*lv6d, *lv7d, *ret;
     u64 oid;
 
+#ifdef LF_DEBUG
+    if(pg_test_zero(pg) != 0)
+    {
+        lforder_debug("find no zero reuse_pg\n");
+        while(1)
+        {
+            sleep(1);
+        }
+    }
+#endif
+
     oid = (oq->newest_pg + 1)<<9;
     
     if(oid < l1_PTRS_PER_PG)
@@ -472,7 +508,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
         {
             lv2d = l2d_offset((u64 *)&oq->l2_fd, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);
-            if(l1b_index_zero(oid) == 0)
+            if(l1b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv2d;
                 *lv2d = 0;
@@ -510,7 +546,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv3d = l3d_offset((u64 *)&oq->l3_fd, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);            
-            if(l2b_index_zero(oid) == 0)
+            if(l2b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv3d;
                 *lv3d = 0;
@@ -522,7 +558,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l1b_index_zero(oid) == 0)
+            else if(l1b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv2d;
                 *lv2d = 0;
@@ -566,7 +602,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv3d = l3d_offset(lv4d, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);
-            if(l3b_index_zero(oid) == 0)
+            if(l3b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv4d;
                 *lv4d = 0;
@@ -583,7 +619,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 _deal_finished_pg(oq, (void *)pg);
 
             }            
-            else if(l2b_index_zero(oid) == 0)
+            else if(l2b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv3d;
                 *lv3d = 0;
@@ -595,7 +631,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l1b_index_zero(oid) == 0)
+            else if(l1b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv2d;
                 *lv2d = 0;
@@ -645,7 +681,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv3d = l3d_offset(lv4d, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);            
-            if(l4b_index_zero(oid) == 0)
+            if(l4b_index_zero(oid) == 1)
             {
                 pg = (u64 *)*lv5d;
                 *lv5d = 0;
@@ -665,7 +701,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l3b_index_zero(oid) == 0)
+            else if(l3b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv4d;
                 *lv4d = 0;
@@ -682,7 +718,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 _deal_finished_pg(oq, (void *)pg);
 
             }            
-            else if(l2b_index_zero(oid) == 0)
+            else if(l2b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv3d;
                 *lv3d = 0;
@@ -694,7 +730,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l1b_index_zero(oid) == 0)
+            else if(l1b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv2d;
                 *lv2d = 0;
@@ -750,7 +786,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv3d = l3d_offset(lv4d, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);
-            if(l5b_index_zero(oid) == 0)
+            if(l5b_index_zero(oid) == 1)
             {
                 pg = (u64 *)*lv6d;
                 *lv6d = 0;
@@ -775,7 +811,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 _deal_finished_pg(oq, (void *)pg);
 
             }            
-            else if(l4b_index_zero(oid) == 0)
+            else if(l4b_index_zero(oid) == 1)
             {
                 pg = (u64 *)*lv5d;
                 *lv5d = 0;
@@ -795,7 +831,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l3b_index_zero(oid) == 0)
+            else if(l3b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv4d;
                 *lv4d = 0;
@@ -812,7 +848,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 _deal_finished_pg(oq, (void *)pg);
 
             }            
-            else if(l2b_index_zero(oid) == 0)
+            else if(l2b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv3d;
                 *lv3d = 0;
@@ -824,7 +860,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l1b_index_zero(oid) == 0)
+            else if(l1b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv2d;
                 *lv2d = 0;
@@ -886,7 +922,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
             lv3d = l3d_offset(lv4d, oid-1);
             lv2d = l2d_offset(lv3d, oid-1);
             lv1d = l1d_offset(lv2d, oid-1);
-            if(l6b_index_zero(oid) == 0)
+            if(l6b_index_zero(oid) == 1)
             {
                 pg = (u64 *)*lv7d;
                 *lv7d = 0;
@@ -914,7 +950,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }                        
-            else if(l5b_index_zero(oid) == 0)
+            else if(l5b_index_zero(oid) == 1)
             {
                 pg = (u64 *)*lv6d;
                 *lv6d = 0;
@@ -939,7 +975,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 _deal_finished_pg(oq, (void *)pg);
 
             }            
-            else if(l4b_index_zero(oid) == 0)
+            else if(l4b_index_zero(oid) == 1)
             {
                 pg = (u64 *)*lv5d;
                 *lv5d = 0;
@@ -959,7 +995,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l3b_index_zero(oid) == 0)
+            else if(l3b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv4d;
                 *lv4d = 0;
@@ -976,7 +1012,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 _deal_finished_pg(oq, (void *)pg);
 
             }            
-            else if(l2b_index_zero(oid) == 0)
+            else if(l2b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv3d;
                 *lv3d = 0;
@@ -988,7 +1024,7 @@ void lfo_deal_finished_pgs(orderq_h_t *oq, u64 oid)
                 *lv1d = 0;
                 _deal_finished_pg(oq, (void *)pg);
             }
-            else if(l1b_index_zero(oid) == 0)
+            else if(l1b_index_zero(oid) == 1)
             {                
                 pg = (u64 *)*lv2d;
                 *lv2d = 0;
@@ -1076,6 +1112,8 @@ snd_pkt:
         }
         else
         {
+            token_at_id = oid;
+            token_at_entry = entry;
             return LO_OK;
         }
     }
@@ -1083,5 +1121,77 @@ snd_pkt:
 
     
 }
+
+
+#ifdef LF_DEBUG
+void *send_s(void *arg)
+{
+    cpu_set_t mask;
+    int i, j, thread_id;
+    u64 order_id;
+//    int (*inq)(lfrwq_t* , void*);
+    u64 start, end;
+    i = (long)arg;
+    if(i<8)
+        j=0;
+    else
+        j=1;
+    j = i;
+    CPU_ZERO(&mask); 
+    CPU_SET(i,&mask);
+
+    if (sched_setaffinity(0, sizeof(mask), &mask) == -1)
+    {
+        printf("warning: could not set CPU affinity, continuing...\n");
+    }
+    
+    printf("writefn%d,start\n",i);
+
+    thread_id = i-1;
+    rdtscll(start);
+
+    for(order_id=thread_id;order_id<0x40000000;order_id += 2)
+    {
+        lfo_send(goqh, thread_id, order_id, order_id);
+    }
+    rdtscll(end);
+    end = end - start;
+    lforder_debug("write%d cycle: %lld\n", j,end);
+    while(1)
+    {
+        sleep(1);
+    }
+    return 0;    
+}
+
+int main(int argc, char **argv)  
+{
+    long num;
+    int err;
+    pthread_t ntid;
+    cpu_set_t mask;
+
+    CPU_ZERO(&mask); 
+
+    goqh = lfo_q_init(2);
+    
+#if 1
+    for(num=1; num <3; num++)
+    {
+        err = pthread_create(&ntid, NULL, send_s, (void *)num);
+        if (err != 0)
+            printf("can't create thread: %s\n", strerror(err));
+    }
+#endif
+
+    while(1)
+    {
+        sleep(1);
+    }
+    
+    return 0;
+}
+
+#endif
 
 

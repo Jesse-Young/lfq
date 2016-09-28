@@ -8,6 +8,8 @@
 #define unlikely 
 #endif
 
+#define LF_DEBUG
+
 typedef struct { unsigned long pd; } lxd_t;
 
 typedef struct

@@ -358,5 +358,22 @@ static inline long atomic64_xchg(atomic64_t *v, long new)
 }
 
 
+static unsigned long long rdtsc()
+{
+    unsigned int lo,hi;
+    asm volatile
+    (
+     "rdtsc":"=a"(lo),"=d"(hi)
+    );
+    return (unsigned long long)hi<<32|lo;
+}
+
+#define rdtscl(low)						\
+	((low) = (u32)rdtsc())
+
+#define rdtscll(val)						\
+	((val) = rdtsc())
+
+
 #endif
 

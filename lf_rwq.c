@@ -32,22 +32,6 @@ u32 mydebug[5][65536];
 
 void lfrwq_pre_alloc(lfrwq_t* qh);
 
-static unsigned long long rdtsc()
-{
-    unsigned int lo,hi;
-    asm volatile
-    (
-     "rdtsc":"=a"(lo),"=d"(hi)
-    );
-    return (unsigned long long)hi<<32|lo;
-}
-
-#define rdtscl(low)						\
-	((low) = (u32)rdtsc())
-
-#define rdtscll(val)						\
-	((val) = rdtsc())
-
 
 u64 lfrwq_deq(lfrwq_t* qh, void **ppdata)
 {
@@ -222,8 +206,6 @@ init_err:
 }
 
 lfrwq_t *gqh;
-orderq_h_t *goqh;
-
 
 void *writefn(void *arg)
 {
@@ -496,7 +478,7 @@ void *read_s(void *arg)
 }
 
 
-int main(int argc, char **argv)  
+int main_test(int argc, char **argv)  
 {
     long num;
     int err;
@@ -505,8 +487,6 @@ int main(int argc, char **argv)
 
     CPU_ZERO(&mask); 
     memset(&testq, 0, sizeof(testq));
-
-    goqh = lfo_q_init(2);
     
 #if 1
     for(num=1; num <3; num++)
